@@ -4,13 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"strconv"
 	"time"
-
-	"github.com/hannut91/gocryptotrader/common"
 
 	"github.com/hannut91/huobi-go/types"
 	"github.com/hannut91/huobi-go/utils"
@@ -238,67 +234,4 @@ func (c *Client) Order(
 
 	orderID = res.OrderID
 	return
-}
-
-func (c *Client) AggregateBalance() (
-	result []types.AggregateBalance,
-	err error,
-) {
-	values := url.Values{}
-	values.Set("AccessKeyId", c.Key)
-	values.Set("SignatureMethod", "HmacSHA256")
-	values.Set("SignatureVersion", "2")
-	values.Set("Timestamp", time.Now().UTC().Format("2006-01-02T15:04:05"))
-
-	method := "GET"
-	endpoint := fmt.Sprintf("/v%s%s", version, "/subuser/aggregate-balance")
-	payload := fmt.Sprintf("%s\napi.huobi.pro\n%s\n%s",
-		method, endpoint, values.Encode())
-
-	headers := make(map[string]string)
-
-	if method == http.MethodGet {
-		headers["Content-Type"] = "application/x-www-form-urlencoded"
-	} else {
-		headers["Content-Type"] = "application/json"
-	}
-
-	hmac := common.GetHMAC(common.HashSHA256, []byte(payload), []byte(c.Secret))
-	signature := common.Base64Encode(hmac)
-	values.Set("Signature", signature)
-
-	urlPath := common.EncodeURLValues(
-		fmt.Sprintf("%s%s", api, endpoint), values,
-	)
-
-	res, err := http.Get(urlPath)
-	if err != nil {
-		return
-	}
-
-	data, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return
-	}
-
-	defer res.Body.Close()
-
-	type response struct {
-		types.Response
-		Balances []types.AggregateBalance `json:"data"`
-	}
-
-	var r response
-
-	err = json.Unmarshal(data, &r)
-	if err != nil {
-		return
-	}
-
-	if r.ErrorMessage != "" {
-		err = errors.New(r.ErrorMessage)
-		return
-	}
-
-	return r.Balances, nil
 }
